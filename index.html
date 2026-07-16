@@ -260,7 +260,7 @@ function markAnswered(key) {
   const set = answeredSet(); set.add(key);
   sessionStorage.setItem(ANSWERED_KEY, JSON.stringify([...set]));
 }
-const askKey = (a) => [a.brief, a.node, a.kind, a.prompt].join(" ");
+const askKey = (a) => [a.brief, a.node, a.kind, a.prompt].join("\u001f");
 
 /* ---------- GitHub Contents API ---------- */
 function apiUrl(path) {
