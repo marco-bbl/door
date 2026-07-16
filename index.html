@@ -289,6 +289,7 @@ async function gh(path, { raw = false, method = "GET", body } = {}) {
 function hintFor(status) {
   if (status === 401) return "The token was rejected — check it in Setup (⚙).";
   if (status === 403) return "The token lacks Contents read & write on this repository, or the API rate limit is hit.";
+  if (status === 404) return "The repository can't be seen — check owner and name in Setup (⚙), and that the token's Repository access covers this repository (fine-grained tokens default to public repositories only).";
   if (status === 409 || status === 422) return "The file changed underneath — refresh and try again.";
   return "";
 }
