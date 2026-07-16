@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Front Door">
+<meta name="darkreader-lock"><!-- the page is dark-aware itself; keep Dark Reader's repaint off -->
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF7F2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18171C">
+<title>Front Door</title>
+<style>
+/* ---------- tokens ---------- */
+:root {
+  --paper: #FAF7F2;
+  --card: #FFFFFF;
+  --ink: #211F26;
+  --ink-soft: #6E6A75;
+  --line: #E7E2DA;
+  --elicit: #4F5DD3;   /* a question for the Operator */
+  --escalate: #B4770A; /* money on the table */
+  --gate: #2E7D4F;     /* say go */
+  --exec: #3A6EA5;     /* executing */
+  --hold: #B4770A;     /* holding */
+  --done: #2E7D4F;     /* done */
+  --judge: #8A8494;    /* judging */
+  --danger: #B0483B;
+  --tap: 44px;
+  font-size: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #18171C;
+    --card: #211F27;
+    --ink: #ECE9E4;
+    --ink-soft: #9B96A3;
+    --line: #322F3A;
+    --elicit: #8B96F2;
+    --escalate: #D9A03C;
+    --gate: #5BB884;
+    --exec: #7FA9D9;
+    --hold: #D9A03C;
+    --done: #5BB884;
+    --judge: #7D7887;
+    --danger: #D9776B;
+  }
+}
+* { box-sizing: border-box; margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.45;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+.display { font-family: ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 800; }
+.num { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+main { max-width: 640px; margin: 0 auto; padding: 12px 16px 24px; }
+
+/* ---------- header ---------- */
+header {
+  position: sticky; top: 0; z-index: 5;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+}
+.header-row { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+header h1 { font-size: 1.35rem; letter-spacing: -0.01em; }
+.header-status { color: var(--ink-soft); font-size: 0.8rem; margin-left: auto; }
+.icon-btn {
+  min-width: var(--tap); min-height: var(--tap);
+  border: none; background: none; color: var(--ink);
+  font-size: 1.25rem; border-radius: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:active { background: var(--line); }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* ---------- cards ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+.ask { border-left: 5px solid var(--kind, var(--line)); }
+.ask.elicitation { --kind: var(--elicit); }
+.ask.escalation { --kind: var(--escalate); }
+.ask.release-gate { --kind: var(--gate); }
+.ask-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.ask-kind { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--kind); }
+.ask-where { font-size: 0.8rem; color: var(--ink-soft); }
+.prompt { font-size: 1.05rem; white-space: pre-wrap; overflow-wrap: break-word; }
+
+.answered { border-left-color: var(--done); }
+.answered-note { color: var(--done); font-weight: 600; margin-top: 10px; }
+.answered-note small { display: block; color: var(--ink-soft); font-weight: 400; }
+
+/* ---------- controls ---------- */
+textarea, input[type="text"], input[type="password"], input[type="number"] {
+  width: 100%; min-height: var(--tap);
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; font: inherit;
+}
+textarea { min-height: 88px; resize: vertical; }
+textarea:focus, input:focus, button:focus-visible { outline: 2px solid var(--elicit); outline-offset: 1px; }
+.btn {
+  min-height: var(--tap);
+  border: none; border-radius: 12px;
+  padding: 10px 18px; font: inherit; font-weight: 700;
+  color: #fff; background: var(--elicit); cursor: pointer;
+  width: 100%; margin-top: 10px;
+}
+.btn:disabled { opacity: 0.55; }
+.btn.escalation { background: var(--escalate); }
+.btn.release-gate { background: var(--gate); }
+.btn.ghost { background: none; color: var(--elicit); border: 1px solid var(--line); font-weight: 600; }
+.fund-row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.fund-row input { width: 7.5em; text-align: right; }
+.fund-row .unit { color: var(--ink-soft); font-size: 0.9rem; }
+.control-error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
+
+/* ---------- sections ---------- */
+.section-head { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 4px; }
+.section-head h2 { font-size: 1.05rem; }
+.badge {
+  font-size: 0.75rem; font-weight: 700;
+  background: var(--line); color: var(--ink);
+  border-radius: 999px; padding: 2px 9px;
+}
+.empty { color: var(--ink-soft); text-align: center; padding: 28px 12px; }
+.delivery-summary { white-space: pre-wrap; overflow-wrap: break-word; color: var(--ink); }
+.delivery-full { white-space: pre-wrap; overflow-wrap: break-word; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.brief-name { font-weight: 700; margin-bottom: 4px; }
+
+/* ---------- dashboard ---------- */
+.pool { margin-top: 12px; }
+.pool-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; }
+.pool-bar { height: 8px; border-radius: 999px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.pool-fill { height: 100%; border-radius: 999px; background: var(--gate); }
+.node-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.node-row:first-of-type { border-top: none; }
+.node-path { font-size: 0.86rem; color: var(--ink-soft); flex: 1; overflow-wrap: anywhere; }
+.chip { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 10px; border-radius: 999px; color: #fff; }
+.chip.judging { background: var(--judge); }
+.chip.holding { background: var(--hold); }
+.chip.executing { background: var(--exec); }
+.chip.done { background: var(--done); }
+.budget-note { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* ---------- tabs ---------- */
+nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-row { max-width: 640px; margin: 0 auto; display: flex; }
+.tab {
+  flex: 1; min-height: 56px;
+  border: none; background: none; color: var(--ink-soft);
+  font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.tab .glyph { font-size: 1.3rem; }
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab .count { position: absolute; transform: translate(16px, -8px); background: var(--escalate); color: #fff; font-size: 0.68rem; border-radius: 999px; padding: 1px 6px; }
+.tab { position: relative; }
+
+/* ---------- banners & setup ---------- */
+.banner { border-left: 5px solid var(--danger); }
+.banner p { font-size: 0.95rem; }
+.demo-note { border-left: 5px solid var(--elicit); font-size: 0.9rem; color: var(--ink-soft); }
+.setup h2 { margin-bottom: 4px; }
+.setup label { display: block; font-size: 0.85rem; font-weight: 600; margin: 14px 0 4px; }
+.setup .hint { font-size: 0.82rem; color: var(--ink-soft); margin-top: 8px; }
+.view { display: none; }
+.view.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <h1 class="display">Front Door</h1>
+    <span class="header-status" id="status"></span>
+    <button class="icon-btn" id="refresh-btn" aria-label="Refresh">⟳</button>
+    <button class="icon-btn" id="setup-btn" aria-label="Settings">⚙</button>
+  </div>
+</header>
+
+<main>
+  <div id="error-slot"></div>
+
+  <section class="view" id="view-setup" aria-label="Setup">
+    <div class="card setup">
+      <h2 class="display">Connect your engine</h2>
+      <p class="hint">This shell holds no repo of its own. Point it at the repository whose <span class="num">runs</span> branch carries your Briefs. The token stays in this browser only.</p>
+      <label for="cfg-owner">Repository owner</label>
+      <input type="text" id="cfg-owner" autocapitalize="none" autocorrect="off" placeholder="owner">
+      <label for="cfg-repo">Repository name</label>
+      <input type="text" id="cfg-repo" autocapitalize="none" autocorrect="off" placeholder="repository">
+      <label for="cfg-pat">Fine-grained token (Contents: read &amp; write)</label>
+      <input type="password" id="cfg-pat" autocapitalize="none" autocorrect="off" placeholder="github_pat_…">
+      <button class="btn" id="cfg-save">Save and open the Inbox</button>
+    </div>
+  </section>
+
+  <section class="view" id="view-inbox" aria-label="Inbox"></section>
+  <section class="view" id="view-dashboard" aria-label="Dashboard"></section>
+
+  <section class="view" id="view-drop" aria-label="Drop a Brief">
+    <div class="card">
+      <h2 class="display">Drop a Brief</h2>
+      <p class="ask-where" style="margin: 4px 0 10px">Say what you want done and how much it may spend — “spend up to 20” is honored; otherwise the engine deals a stingy budget.</p>
+      <textarea id="drop-text" rows="6" placeholder="What should the engine take on?"></textarea>
+      <button class="btn" id="drop-send">Drop it — the engine ticks at once</button>
+      <p class="control-error" id="drop-error" hidden></p>
+      <p class="answered-note" id="drop-done" hidden>✓ Brief dropped<small>The next tick judges it; asks will ring the doorbell.</small></p>
+    </div>
+  </section>
+</main>
+
+<nav aria-label="Views">
+  <div class="nav-row">
+    <button class="tab" data-view="inbox" aria-selected="true"><span class="glyph">☖</span>Inbox<span class="count" id="ask-count" hidden></span></button>
+    <button class="tab" data-view="dashboard" aria-selected="false"><span class="glyph">▦</span>Dashboard</button>
+    <button class="tab" data-view="drop" aria-selected="false"><span class="glyph">✎</span>Drop</button>
+  </div>
+</nav>
+
+<script>
+"use strict";
+
+/* ---------- config & mode ---------- */
+const DEMO = new URLSearchParams(location.search).has("demo");
+const CFG_KEY = "door.cfg";
+const ANSWERED_KEY = "door.answered";
+
+function loadCfg() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || null; } catch { return null; }
+}
+function saveCfg(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+let cfg = loadCfg();
+
+function answeredSet() {
+  try { return new Set(JSON.parse(sessionStorage.getItem(ANSWERED_KEY)) || []); } catch { return new Set(); }
+}
+function markAnswered(key) {
+  const set = answeredSet(); set.add(key);
+  sessionStorage.setItem(ANSWERED_KEY, JSON.stringify([...set]));
+}
+const askKey = (a) => [a.brief, a.node, a.kind, a.prompt].join(" ");
+
+/* ---------- GitHub Contents API ---------- */
+function apiUrl(path) {
+  return `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+async function gh(path, { raw = false, method = "GET", body } = {}) {
+  const res = await fetch(apiUrl(path) + (method === "GET" ? "?ref=runs" : ""), {
+    method,
+    headers: {
+      Authorization: `Bearer ${cfg.pat}`,
+      Accept: raw ? "application/vnd.github.raw+json" : "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 404 && method === "GET") return null;
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`GitHub said ${res.status} on ${method} ${path}. ${hintFor(res.status)}${detail ? "" : ""}`);
+  }
+  return raw ? res.text() : res.json();
+}
+function hintFor(status) {
+  if (status === 401) return "The token was rejected — check it in Setup (⚙).";
+  if (status === 403) return "The token lacks Contents read & write on this repository, or the API rate limit is hit.";
+  if (status === 409 || status === 422) return "The file changed underneath — refresh and try again.";
+  return "";
+}
+function b64utf8(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+async function shaOf(path) {
+  const meta = await gh(path);
+  return meta ? meta.sha : null;
+}
+async function putFile(path, text, message) {
+  if (DEMO) return demoDelay();
+  const sha = await shaOf(path);
+  await gh(path, { method: "PUT", body: {
+    message, content: b64utf8(text), branch: "runs", ...(sha ? { sha } : {}),
+  }});
+}
+async function deleteFile(path, message) {
+  if (DEMO) return demoDelay();
+  const sha = await shaOf(path);
+  if (!sha) return; // already gone — nothing to clear
+  await gh(path, { method: "DELETE", body: { message, sha, branch: "runs" } });
+}
+const demoDelay = () => new Promise((r) => setTimeout(r, 400));
+
+/* ---------- the three answer paths ---------- */
+async function answerElicitation(ask, text) {
+  await putFile(ask.answerPath, text.trim() + "\n", `answer: ${ask.brief} — ${ask.node}`);
+}
+async function sayGo(ask) {
+  await putFile(ask.answerPath, "Go.\n", `go: ${ask.brief} — ${ask.node}`);
+}
+async function fundEscalation(ask, amount) {
+  if (DEMO) return demoDelay();
+  const { budgetPath, escalationPath } = ask.fund;
+  const meta = await gh(budgetPath);
+  let budget = {};
+  try { budget = JSON.parse(decodeURIComponent(escape(atob((meta?.content || "").replace(/\n/g, ""))))); } catch { budget = {}; }
+  budget.amount = amount;
+  if (budget.unit === undefined && ask.fund.unit) budget.unit = ask.fund.unit;
+  await gh(budgetPath, { method: "PUT", body: {
+    message: `fund: ${ask.brief} to ${amount}`,
+    content: b64utf8(JSON.stringify(budget, null, 2) + "\n"),
+    branch: "runs",
+    ...(meta ? { sha: meta.sha } : {}),
+  }});
+  await deleteFile(escalationPath, `fund: ${ask.brief} — clear the escalation`);
+}
+async function dropBrief(text) {
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim().split(/\s+/).slice(0, 4).join("-") || "brief";
+  const now = new Date();
+  const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0")
+    + "-" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+  await putFile(`${words}-${stamp}/brief.md`, text.trim() + "\n", `drop: ${words}`);
+}
+
+/* ---------- state ---------- */
+let state = null;
+let lastChecked = null;
+
+async function loadState() {
+  if (DEMO) { state = demoState(); lastChecked = new Date(); return; }
+  const text = await gh("front-door.json", { raw: true });
+  if (text === null) throw new Error("No front-door.json rests on the runs branch yet — the first tick writes it.");
+  state = JSON.parse(text);
+  lastChecked = new Date();
+}
+
+function demoState() {
+  return {
+    inbox: {
+      asks: [
+        { brief: "van-electrics-guide", node: ".", kind: "elicitation",
+          prompt: "Which goal leads: a guide you publish, or notes for your own build?\n- publish\n- own build",
+          answerPath: "van-electrics-guide/derisk/elicitation-leading-goal/answer.md" },
+        { brief: "van-electrics-guide", node: ".", kind: "escalation",
+          prompt: "The brief asks for a 30,000-word handbook; 2 credits cannot cover it. Fund it to 50 credits, or shrink it: cover only the electrical system.",
+          fund: { budgetPath: "van-electrics-guide/budget.json", escalationPath: "van-electrics-guide/escalation.json", neededBudget: 50, unit: "credits" } },
+        { brief: "field-notes-site", node: "bubbles/part-1", kind: "release-gate",
+          prompt: 'part one, drafted is ready. Say "go" to publish it.',
+          answerPath: "field-notes-site/bubbles/part-1/go.md" },
+      ],
+      deliveries: [
+        { brief: "toy-haiku", summary: "Roads hum beneath wheels —\nthe kettle finds its own pace.\nHome is where it parks." },
+        { brief: "solar-sizing", summary: "Sized for 280W of panel and 200Ah of LiFePO4: the fridge, lights, and laptop run four cloudy days. Full working shown in the result — panel math, battery derating, and the…", link: "solar-sizing/result.md" },
+      ],
+    },
+    dashboard: [
+      { brief: "field-notes-site", node: ".", state: "executing", budget: { amount: 20, unit: "credits" }, spent: 6 },
+      { brief: "field-notes-site", node: "bubbles/part-1", state: "holding", budget: { amount: 8, unit: "credits" } },
+      { brief: "solar-sizing", node: ".", state: "done", budget: { amount: 5, unit: "credits" }, spent: 4 },
+      { brief: "toy-haiku", node: ".", state: "done", budget: { amount: 1, unit: "credits" }, spent: 1 },
+      { brief: "van-electrics-guide", node: ".", state: "holding", budget: { amount: 2, unit: "credits" } },
+    ],
+    pool: { total: 100, spent: 38, remaining: 62, unit: "credits" },
+  };
+}
+
+/* ---------- rendering ---------- */
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, cls, text) => {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+
+function render() {
+  renderStatus();
+  renderInbox();
+  renderDashboard();
+}
+
+function renderStatus() {
+  $("#status").textContent = DEMO ? "demo" : (lastChecked ? "checked " + lastChecked.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
+  const asks = state ? state.inbox.asks.length : 0;
+  const badge = $("#ask-count");
+  badge.hidden = asks === 0;
+  badge.textContent = asks;
+}
+
+function renderInbox() {
+  const view = $("#view-inbox");
+  view.textContent = "";
+  if (!state) return;
+  const answered = answeredSet();
+
+  if (DEMO) {
+    const note = el("div", "card demo-note", "Demo — a canned projection, no repository behind it. Answers are pretended, nothing is written.");
+    view.append(note);
+  }
+
+  const asksHead = el("div", "section-head");
+  asksHead.append(el("h2", "display", "Needs you"), el("span", "badge num", String(state.inbox.asks.length)));
+  view.append(asksHead);
+
+  if (state.inbox.asks.length === 0) {
+    view.append(el("p", "empty", "Nothing needs you. Drop a Brief, or come back when the doorbell rings."));
+  }
+  for (const ask of state.inbox.asks) view.append(askCard(ask, answered.has(askKey(ask))));
+
+  const dHead = el("div", "section-head");
+  dHead.append(el("h2", "display", "Delivered"), el("span", "badge num", String(state.inbox.deliveries.length)));
+  view.append(dHead);
+  if (state.inbox.deliveries.length === 0) {
+    view.append(el("p", "empty", "Nothing delivered yet."));
+  }
+  for (const d of state.inbox.deliveries) view.append(deliveryCard(d));
+}
+
+function askCard(ask, isAnswered) {
+  const card = el("article", `card ask ${ask.kind}` + (isAnswered ? " answered" : ""));
+  const meta = el("div", "ask-meta");
+  meta.append(
+    el("span", "ask-kind", ask.kind === "release-gate" ? "release gate" : ask.kind),
+    el("span", "ask-where", ask.brief + (ask.node === "." ? "" : " · " + ask.node)),
+  );
+  card.append(meta, el("p", "prompt", ask.prompt));
+
+  if (isAnswered) {
+    const note = el("p", "answered-note", "✓ answered");
+    note.append(el("small", null, "The engine picks it up on the next tick."));
+    card.append(note);
+    return card;
+  }
+
+  const err = el("p", "control-error"); err.hidden = true;
+  const done = () => { markAnswered(askKey(ask)); renderInbox(); renderStatus(); };
+  const fail = (e) => { err.textContent = e.message; err.hidden = false; };
+
+  if (ask.kind === "elicitation") {
+    const box = el("textarea");
+    box.placeholder = "Dictate or type your answer…";
+    const btn = el("button", "btn", "Send answer");
+    btn.onclick = () => submit(btn, () => answerElicitation(ask, box.value), done, fail, () => box.value.trim() !== "");
+    card.append(box, btn, err);
+  } else if (ask.kind === "escalation" && ask.fund) {
+    const row = el("div", "fund-row");
+    const amount = el("input"); amount.type = "number"; amount.min = "1"; amount.inputMode = "numeric";
+    if (typeof ask.fund.neededBudget === "number") amount.value = ask.fund.neededBudget;
+    row.append(amount, el("span", "unit", ask.fund.unit || ""));
+    const btn = el("button", "btn escalation", "Fund it");
+    const label = () => { btn.textContent = amount.value ? `Fund to ${amount.value}${ask.fund.unit ? " " + ask.fund.unit : ""}` : "Fund it"; };
+    amount.oninput = label; label();
+    btn.onclick = () => submit(btn, () => fundEscalation(ask, Number(amount.value)), done, fail, () => Number(amount.value) > 0);
+    card.append(row, btn, err);
+  } else if (ask.kind === "release-gate") {
+    const btn = el("button", "btn release-gate", "Go");
+    btn.onclick = () => submit(btn, () => sayGo(ask), done, fail);
+    card.append(btn, err);
+  }
+  return card;
+}
+
+async function submit(btn, action, done, fail, valid) {
+  if (valid && !valid()) return;
+  btn.disabled = true;
+  const was = btn.textContent;
+  btn.textContent = "Sending…";
+  try { await action(); done(); }
+  catch (e) { fail(e); btn.disabled = false; btn.textContent = was; }
+}
+
+function deliveryCard(d) {
+  const card = el("article", "card");
+  card.append(el("p", "brief-name", d.brief), el("p", "delivery-summary", d.summary));
+  if (d.link) {
+    const btn = el("button", "btn ghost", "Read the whole result");
+    const err = el("p", "control-error"); err.hidden = true;
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = "Fetching…";
+      try {
+        const full = DEMO ? await demoDelay().then(() => "# Solar sizing — full working\n\n(The demo pretends: in a live run this fetches " + d.link + " from the runs branch.)") : await gh(d.link, { raw: true });
+        card.append(el("div", "delivery-full", full ?? "The linked result is missing from the runs branch."));
+        btn.remove();
+      } catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = "Read the whole result"; }
+    };
+    card.append(btn, err);
+  }
+  return card;
+}
+
+function renderDashboard() {
+  const view = $("#view-dashboard");
+  view.textContent = "";
+  if (!state) return;
+
+  const pool = state.pool;
+  const poolCard = el("div", "card pool");
+  const line = el("div", "pool-line");
+  line.append(el("strong", "display", "Pool"), el("span", "num", `${pool.remaining} of ${pool.total} ${pool.unit} left`));
+  const bar = el("div", "pool-bar");
+  const fill = el("div", "pool-fill");
+  fill.style.width = pool.total > 0 ? Math.max(0, Math.min(100, (pool.remaining / pool.total) * 100)) + "%" : "0%";
+  bar.append(fill);
+  poolCard.append(line, bar);
+  view.append(poolCard);
+
+  const byBrief = new Map();
+  for (const row of state.dashboard) {
+    if (!byBrief.has(row.brief)) byBrief.set(row.brief, []);
+    byBrief.get(row.brief).push(row);
+  }
+  if (byBrief.size === 0) view.append(el("p", "empty", "No Briefs in flight. Drop one."));
+
+  for (const [brief, rows] of byBrief) {
+    const card = el("article", "card");
+    const root = rows.find((r) => r.node === ".");
+    card.append(el("p", "brief-name", brief));
+    if (root?.budget) {
+      const spent = typeof root.spent === "number" ? `${root.spent} of ` : "";
+      card.append(el("p", "budget-note num", `${spent}${root.budget.amount} ${root.budget.unit}`));
+    }
+    for (const row of rows) {
+      const nodeRow = el("div", "node-row");
+      nodeRow.append(el("span", "node-path", row.node === "." ? "root" : row.node), el("span", `chip ${row.state}`, row.state));
+      card.append(nodeRow);
+    }
+    view.append(card);
+  }
+}
+
+/* ---------- errors ---------- */
+function showError(message) {
+  const slot = $("#error-slot");
+  slot.textContent = "";
+  const card = el("div", "card banner");
+  card.append(el("p", null, message));
+  slot.append(card);
+}
+function clearError() { $("#error-slot").textContent = ""; }
+
+/* ---------- navigation ---------- */
+function show(view) {
+  for (const v of document.querySelectorAll(".view")) v.classList.toggle("active", v.id === "view-" + view);
+  for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.view === view));
+}
+for (const tab of document.querySelectorAll(".tab")) {
+  tab.onclick = () => {
+    if (!cfg && !DEMO) { show("setup"); return; }
+    show(tab.dataset.view);
+  };
+}
+$("#setup-btn").onclick = () => {
+  if (cfg) { $("#cfg-owner").value = cfg.owner; $("#cfg-repo").value = cfg.repo; $("#cfg-pat").value = cfg.pat; }
+  show("setup");
+};
+$("#cfg-save").onclick = () => {
+  const owner = $("#cfg-owner").value.trim(), repo = $("#cfg-repo").value.trim(), pat = $("#cfg-pat").value.trim();
+  if (!owner || !repo || !pat) return;
+  cfg = { owner, repo, pat };
+  saveCfg(cfg);
+  show("inbox");
+  refresh(true);
+};
+
+/* ---------- refresh loop ---------- */
+let refreshing = false;
+async function refresh(manual) {
+  if (refreshing || (!cfg && !DEMO)) return;
+  refreshing = true;
+  const btn = $("#refresh-btn");
+  if (manual) btn.classList.add("spin");
+  try { await loadState(); clearError(); render(); }
+  catch (e) { showError(e.message); }
+  finally { refreshing = false; btn.classList.remove("spin"); }
+}
+$("#refresh-btn").onclick = () => refresh(true);
+setInterval(() => { if (document.visibilityState === "visible") refresh(false); }, 60_000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(false); });
+
+/* ---------- drop ---------- */
+$("#drop-send").onclick = async () => {
+  const box = $("#drop-text"), err = $("#drop-error"), ok = $("#drop-done"), btn = $("#drop-send");
+  if (box.value.trim() === "") return;
+  btn.disabled = true; btn.textContent = "Dropping…"; err.hidden = true; ok.hidden = true;
+  try {
+    await dropBrief(box.value);
+    box.value = "";
+    ok.hidden = false;
+  } catch (e) { err.textContent = e.message; err.hidden = false; }
+  btn.disabled = false; btn.textContent = "Drop it — the engine ticks at once";
+};
+
+/* ---------- boot ---------- */
+if (DEMO || cfg) { show("inbox"); refresh(true); } else { show("setup"); }
+</script>
+</body>
+</html>
