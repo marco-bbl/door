@@ -140,6 +140,7 @@ textarea:focus, input:focus, button:focus-visible { outline: 2px solid var(--eli
 .empty { color: var(--ink-soft); text-align: center; padding: 28px 12px; }
 .delivery-summary { white-space: pre-wrap; overflow-wrap: break-word; color: var(--ink); }
 .delivery-full { white-space: pre-wrap; overflow-wrap: break-word; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.card a { color: var(--exec); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
 .brief-name { font-weight: 700; margin-bottom: 4px; }
 
 /* ---------- dashboard ---------- */
@@ -260,6 +261,7 @@ function markAnswered(key) {
   const set = answeredSet(); set.add(key);
   sessionStorage.setItem(ANSWERED_KEY, JSON.stringify([...set]));
 }
+/* Ask identity — must stay in step with the doorbell's jq diff in .github/workflows/tick.yml. */
 const askKey = (a) => [a.brief, a.node, a.kind, a.prompt].join("\u001f");
 
 /* ---------- GitHub Contents API ---------- */
@@ -280,7 +282,7 @@ async function gh(path, { raw = false, method = "GET", body } = {}) {
   if (res.status === 404 && method === "GET") return null;
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`GitHub said ${res.status} on ${method} ${path}. ${hintFor(res.status)}${detail ? "" : ""}`);
+    throw new Error(`GitHub said ${res.status} on ${method} ${path}. ${hintFor(res.status)}${detail ? ` (${detail.slice(0, 140)})` : ""}`);
   }
   return raw ? res.text() : res.json();
 }
@@ -296,13 +298,19 @@ function b64utf8(text) {
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin);
 }
+function utf8b64(b64) {
+  const bytes = Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
 async function shaOf(path) {
   const meta = await gh(path);
   return meta ? meta.sha : null;
 }
 async function putFile(path, text, message) {
   if (DEMO) return demoDelay();
-  const sha = await shaOf(path);
+  await putFileWithSha(path, text, message, await shaOf(path));
+}
+async function putFileWithSha(path, text, message, sha) {
   await gh(path, { method: "PUT", body: {
     message, content: b64utf8(text), branch: "runs", ...(sha ? { sha } : {}),
   }});
@@ -327,15 +335,11 @@ async function fundEscalation(ask, amount) {
   const { budgetPath, escalationPath } = ask.fund;
   const meta = await gh(budgetPath);
   let budget = {};
-  try { budget = JSON.parse(decodeURIComponent(escape(atob((meta?.content || "").replace(/\n/g, ""))))); } catch { budget = {}; }
+  try { budget = JSON.parse(utf8b64(meta?.content || "")); } catch { budget = {}; }
   budget.amount = amount;
   if (budget.unit === undefined && ask.fund.unit) budget.unit = ask.fund.unit;
-  await gh(budgetPath, { method: "PUT", body: {
-    message: `fund: ${ask.brief} to ${amount}`,
-    content: b64utf8(JSON.stringify(budget, null, 2) + "\n"),
-    branch: "runs",
-    ...(meta ? { sha: meta.sha } : {}),
-  }});
+  await putFileWithSha(budgetPath, JSON.stringify(budget, null, 2) + "\n",
+    `fund: ${ask.brief} to ${amount}`, meta ? meta.sha : null);
   await deleteFile(escalationPath, `fund: ${ask.brief} — clear the escalation`);
 }
 async function dropBrief(text) {
@@ -373,6 +377,7 @@ function demoState() {
           answerPath: "field-notes-site/bubbles/part-1/go.md" },
       ],
       deliveries: [
+        { brief: "field-notes-site", summary: "Shipped: part one went up as a pull request — https://github.com/marco-bbl/field-notes/pull/7 — merge it when happy." },
         { brief: "toy-haiku", summary: "Roads hum beneath wheels —\nthe kettle finds its own pace.\nHome is where it parks." },
         { brief: "solar-sizing", summary: "Sized for 280W of panel and 200Ah of LiFePO4: the fridge, lights, and laptop run four cloudy days. Full working shown in the result — panel math, battery derating, and the…", link: "solar-sizing/result.md" },
       ],
@@ -394,6 +399,18 @@ const el = (tag, cls, text) => {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
   if (text !== undefined) node.textContent = text;
+  return node;
+};
+/* Delivery prose with any URL tappable — built as DOM nodes, never innerHTML. */
+const linked = (tag, cls, text) => {
+  const node = el(tag, cls);
+  for (const part of String(text).split(/(https?:\/\/[^\s)\]>"']+)/g)) {
+    if (/^https?:\/\//.test(part)) {
+      const a = el("a", "", part);
+      a.href = part; a.target = "_blank"; a.rel = "noopener";
+      node.append(a);
+    } else if (part) node.append(part);
+  }
   return node;
 };
 
@@ -495,7 +512,7 @@ async function submit(btn, action, done, fail, valid) {
 
 function deliveryCard(d) {
   const card = el("article", "card");
-  card.append(el("p", "brief-name", d.brief), el("p", "delivery-summary", d.summary));
+  card.append(el("p", "brief-name", d.brief), linked("p", "delivery-summary", d.summary));
   if (d.link) {
     const btn = el("button", "btn ghost", "Read the whole result");
     const err = el("p", "control-error"); err.hidden = true;
@@ -503,7 +520,7 @@ function deliveryCard(d) {
       btn.disabled = true; btn.textContent = "Fetching…";
       try {
         const full = DEMO ? await demoDelay().then(() => "# Solar sizing — full working\n\n(The demo pretends: in a live run this fetches " + d.link + " from the runs branch.)") : await gh(d.link, { raw: true });
-        card.append(el("div", "delivery-full", full ?? "The linked result is missing from the runs branch."));
+        card.append(linked("div", "delivery-full", full ?? "The linked result is missing from the runs branch."));
         btn.remove();
       } catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = "Read the whole result"; }
     };
